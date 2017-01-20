@@ -19,7 +19,10 @@ private:
 	BOOL  bResults = FALSE;
 	unsigned long int rMaxSize, rSize, rDownloaded;
 	char* response;
-	char* rBoundary;
+	char* rInitialBoundary = "--Imupager\r\n";
+	//char* rDataField = "Content-Disposition: form-data; name=\"image\";\r\nfilename=\"image.jpg\"\r\nContent-Type: image/jpeg;\r\n";
+	char* rDataField = "Content-Disposition: form-data; name=\"Image\";\r\nContent-Type: image/jpeg;\r\n";
+	char* rBoundary = "--Imupager--\r\n";
 
 	void initializeWinHTTP();
 	LPCWSTR convCharLPCWSTR(char* str);

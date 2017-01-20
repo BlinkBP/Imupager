@@ -4,8 +4,6 @@ Imupager::Imupager(){
 	adr = L"uploads.im";
 	rMaxSize = 512;
 	initializeWinHTTP();
-	rBoundary = new char[17]();
-	rBoundary = "\n\r--ImupageR--\n\r";
 };
 
 Imupager::~Imupager()
@@ -25,34 +23,32 @@ void Imupager::sendPOST(void* file, DWORD size)
 		if (hRequest)
 		{
 			std::cout << "Request opened." << std::endl;
-			bResults = WinHttpAddRequestHeaders(hRequest, L"Boundary:ImupageR", -1L, 0);
+			long length = strlen(rInitialBoundary) + strlen(rDataField) + size + strlen(rBoundary);
+			bResults = WinHttpSendRequest(hRequest, L"Content-Type:multipart/form-data; boundary:ImupageR", -1L, NULL, 0, length, 0);
 			if (bResults)
 			{
-				std::cout << "Boundary header added." << std::endl;
-
-				bResults = WinHttpSendRequest(hRequest, L"Content-Type:multipart/form-data", -1L, (LPVOID)file, size, size + strlen(rBoundary), 0);
+				std::cout << "Request sent." << std::endl;
+				bResults = WinHttpWriteData(hRequest, rInitialBoundary, strlen(rInitialBoundary), &rSize);
+				bResults = WinHttpWriteData(hRequest, rDataField, strlen(rDataField), &rSize);
+				bResults = WinHttpWriteData(hRequest, (LPVOID)file, size, &rSize);
+				bResults = WinHttpWriteData(hRequest, rBoundary, strlen(rBoundary), &rSize);
 				if (bResults)
 				{
-					std::cout << "Request sent." << std::endl;
-					bResults = WinHttpWriteData(hRequest, rBoundary, strlen(rBoundary), &rSize);
-					if (bResults)
-					{
-						receiveResponse();
-					}
-					else
-					{
-						std::cout << GetLastError() << std::endl;
-					}
+					receiveResponse();
 				}
 				else
 				{
-					std::cout << "Error in WinHttpSendRequest: " << GetLastError() << std::endl;
+					std::cout << GetLastError() << std::endl;
 				}
 			}
 			else
 			{
-				std::cout << "Error in WinHttpAddRequestHeaders: " << GetLastError() << std::endl;
+				std::cout << "Error in WinHttpSendRequest: " << GetLastError() << std::endl;
 			}
+		}
+		else
+		{
+			std::cout << "Error in WinHttpAddRequestHeaders: " << GetLastError() << std::endl;
 		}
 	}
 };
