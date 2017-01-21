@@ -1,6 +1,7 @@
 #pragma once
 #include <iostream>
-#include <fstream>
+#include <algorithm>
+#include <iterator>
 /*windows api*/
 #include <windows.h>
 #include <winhttp.h>
@@ -11,20 +12,21 @@ class Imupager
 public:
 	Imupager();
 	~Imupager();
-	void sendPOST(void* file, DWORD size);
+
+	void upload(void* file, DWORD size);
+	bool uploadSuccessful();
+	std::string getUrl();
 
 private:
 	LPCWSTR	adr;
 	HINTERNET hSession, hConnect, hRequest;
-	BOOL  bResults = FALSE;
-	unsigned long int rMaxSize, rSize, rDownloaded;
+	BOOL  bResults, uSuccess;
+	DWORD rSize, rDownloaded;
 	char* response;
-	char* rInitialBoundary = "--Imupager\r\n";
-	//char* rDataField = "Content-Disposition: form-data; name=\"image\";\r\nfilename=\"image.jpg\"\r\nContent-Type: image/jpeg;\r\n";
-	char* rDataField = "Content-Disposition: form-data; name=\"Image\";\r\nContent-Type: image/jpeg;\r\n";
-	char* rBoundary = "--Imupager--\r\n";
+	char* authHeader;
+	std::string uUrl;
 
-	void initializeWinHTTP();
-	LPCWSTR convCharLPCWSTR(char* str);
+	bool initializeWinHTTP();
 	void receiveResponse();
+	void parseResponse(char* response, DWORD size);
 };

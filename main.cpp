@@ -2,15 +2,14 @@
 #include <iostream>
 #include "Imupager.h"
 
-char*  getCmdOption(char** begin, char** end, const std::string & option);
+char* getCmdOption(char** begin, char** end, const std::string & option);
+bool copyToClipboard(std::string str);
 
 int main(int argc, char * argv[])
 {
-	//if (argc > 0)
-	if (true)
+	if (argc > 0)
 	{
-		//char* path = getCmdOption(argv, argv + argc, "-u"); //getting the image path
-		char* path = "G:\\Dropbox\\1b4c328d38f03404b6cef9b742f77c7c.jpg";
+		char* path = getCmdOption(argv, argv + argc, "-u"); //getting the image path
 
 		if (path)
 		{
@@ -25,7 +24,17 @@ int main(int argc, char * argv[])
 				std::cout << "File loaded. Size: " << dwFileSize << std::endl;
 				Imupager up;
 				std::cout << "Sending POST" << std::endl;
-				up.sendPOST((void*)pBuf, dwFileSize);
+				up.upload((void*)pBuf, dwFileSize);
+				if (up.uploadSuccessful())
+				{
+					std::string url = up.getUrl();
+					bool cSuccess = copyToClipboard(url);
+					if (cSuccess)
+					{
+						std::cout << "URL copied to clippboard successfully." << std::endl;
+						Sleep(1000);
+					}
+				}
 			}
 			else
 				std::cout << "Could not read the file: " << GetLastError() << std::endl;
@@ -42,4 +51,22 @@ char*  getCmdOption(char** begin, char** end, const std::string & option)
 		return *itr;
 	}
 	return 0;
+}
+
+bool copyToClipboard(std::string str)
+{
+	OpenClipboard(NULL);
+	EmptyClipboard();
+	HGLOBAL hg = GlobalAlloc(GMEM_MOVEABLE, str.size());
+	if (!hg)
+	{
+		CloseClipboard();
+		return FALSE;
+	}
+	memcpy_s(GlobalLock(hg), str.size(), str.c_str(), str.size());
+	GlobalUnlock(hg);
+	SetClipboardData(CF_TEXT, hg);
+	CloseClipboard();
+	GlobalFree(hg);
+	return TRUE;
 }

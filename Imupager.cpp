@@ -1,9 +1,10 @@
 #include "Imupager.h"
 
 Imupager::Imupager(){
-	adr = L"uploads.im";
-	rMaxSize = 512;
-	initializeWinHTTP();
+	adr = L"api.imgur.com";
+	//adr = L"uploads.im";
+	bResults = FALSE;
+	uSuccess = FALSE;
 };
 
 Imupager::~Imupager()
@@ -14,95 +15,129 @@ Imupager::~Imupager()
 	if (hSession) WinHttpCloseHandle(hSession);
 };
 
-void Imupager::sendPOST(void* file, DWORD size)
+void Imupager::upload(void* file, DWORD size)
 {
-	if (hConnect != NULL)
+	bResults = FALSE;
+	uSuccess = FALSE;
+	bResults = initializeWinHTTP();
+	if (bResults)
 	{
 		std::cout << "Connection established." << std::endl;
-		hRequest = WinHttpOpenRequest(hConnect, L"POST", L"/api?upload", NULL, WINHTTP_NO_REFERER, WINHTTP_DEFAULT_ACCEPT_TYPES, WINHTTP_FLAG_REFRESH);
+
+		hRequest = WinHttpOpenRequest(hConnect, L"POST", L"/3/image", NULL, WINHTTP_NO_REFERER, WINHTTP_DEFAULT_ACCEPT_TYPES, WINHTTP_FLAG_REFRESH);
+		//hRequest = WinHttpOpenRequest(hConnect, L"POST", L"/api?upload", NULL, WINHTTP_NO_REFERER, WINHTTP_DEFAULT_ACCEPT_TYPES, WINHTTP_FLAG_REFRESH);
+
 		if (hRequest)
 		{
 			std::cout << "Request opened." << std::endl;
-			long length = strlen(rInitialBoundary) + strlen(rDataField) + size + strlen(rBoundary);
-			bResults = WinHttpSendRequest(hRequest, L"Content-Type:multipart/form-data; boundary:ImupageR", -1L, NULL, 0, length, 0);
+			//Imgur Client ID authorization header
+			bResults = WinHttpAddRequestHeaders(hRequest, L"Authorization: Client-ID PLACEHOLDER", -1L, WINHTTP_ADDREQ_FLAG_ADD);
 			if (bResults)
 			{
-				std::cout << "Request sent." << std::endl;
-				bResults = WinHttpWriteData(hRequest, rInitialBoundary, strlen(rInitialBoundary), &rSize);
-				bResults = WinHttpWriteData(hRequest, rDataField, strlen(rDataField), &rSize);
-				bResults = WinHttpWriteData(hRequest, (LPVOID)file, size, &rSize);
-				bResults = WinHttpWriteData(hRequest, rBoundary, strlen(rBoundary), &rSize);
+				bResults = WinHttpSendRequest(hRequest, WINHTTP_NO_ADDITIONAL_HEADERS, 0, NULL, 0, size, 0);
 				if (bResults)
 				{
-					receiveResponse();
+					std::cout << "Request sent." << std::endl;
+
+					bResults = WinHttpWriteData(hRequest, (LPVOID)file, size, &rSize);
+					if (bResults)
+						receiveResponse();
+					else
+						std::cout << "Error in WinHttpWriteData: " << GetLastError() << std::endl;
 				}
 				else
-				{
-					std::cout << GetLastError() << std::endl;
-				}
+					std::cout << "Error in WinHttpSendRequest: " << GetLastError() << std::endl;
 			}
 			else
-			{
-				std::cout << "Error in WinHttpSendRequest: " << GetLastError() << std::endl;
-			}
+				std::cout << "Error in WinHttpAddRequestHeaders: " << GetLastError() << std::endl;
 		}
 		else
-		{
 			std::cout << "Error in WinHttpAddRequestHeaders: " << GetLastError() << std::endl;
-		}
 	}
-};
+}
+bool Imupager::uploadSuccessful()
+{
+	return uSuccess;
+}
+std::string Imupager::getUrl()
+{
+	return uUrl;
+}
+;
 
 void Imupager::receiveResponse()
 {
 	bResults = WinHttpReceiveResponse(hRequest, NULL);
 	if (bResults)
 	{
-		do
+		std::cout << "Receiving a response." << std::endl;
+
+		bResults = WinHttpQueryDataAvailable(hRequest, &rSize);
+		if (bResults)
 		{
-			rSize = 0;
-			std::cout << "Receiving a response." << std::endl;
-			if (!WinHttpQueryDataAvailable(hRequest, &rSize))
-				std::cout << "Error in WinHttpQueryDataAvailable: " << GetLastError() << std::endl;
-			response = new char[rSize + 1]();
+			response = new char[rSize]();
 			if (!WinHttpReadData(hRequest, (LPVOID)response, rSize, &rDownloaded))
 				std::cout << "Error in WinHttpReadData: " << GetLastError() << std::endl;
 			else
-				std::cout << response << std::endl;
+				parseResponse(response, rDownloaded);
+				//std::cout << response << std::endl;
 			delete[] response;
-		} while (rSize > 0);
+		}
+		else
+			std::cout << "Error in WinHttpQueryDataAvailable: " << GetLastError() << std::endl;
+	}
+	else
+		std::cout << "Error in WinHttpReceiveResponse: " << GetLastError() << std::endl;
+}
+
+void Imupager::parseResponse(char* response, DWORD size)
+{
+	std::string r(response, size);
+	auto succ = r.find("\"success\":true");
+	if (succ != r.back())
+	{
+		//Upload successful
+		//Let's get the url
+		//Response looks like this: [...],"link":"http:\/\/i.imgur[...]"},[...]
+		size_t lBegin = r.find("link") + strlen("link\":\"");
+		//Searching for the ending '"' of link
+		size_t lEnd = r.find('"', lBegin);
+		if (lEnd != r.back())
+		{
+			std::string url = std::string(r, lBegin, lEnd - lBegin + 1);
+			//Let's sanitize the url a little; '\' characters have to go
+			std::string sanitizedUrl;
+			std::remove_copy(url.begin(), url.end(), std::back_inserter(sanitizedUrl), '\\');
+
+			uUrl = std::string(sanitizedUrl);
+			uSuccess = TRUE;
+		}
+		else
+			std::cout << "Error while parsing the response." << std::endl;
 	}
 	else
 	{
-		std::cout << "Error in WinHttpReceiveResponse: " << GetLastError() << std::endl;
+		std::cout << "Invalid response from server: " << response << std::endl;
 	}
-};
+}
 
-void Imupager::initializeWinHTTP()
+bool Imupager::initializeWinHTTP()
 {
 	//initializing the use of WinHTTP functions and getting WinHTTP-session handle.
-	hSession = WinHttpOpen(L"Imupager/0.5", WINHTTP_ACCESS_TYPE_AUTOMATIC_PROXY, WINHTTP_NO_PROXY_NAME, WINHTTP_NO_PROXY_BYPASS, 0);
+	hSession = WinHttpOpen(L"Imupager/1.0", WINHTTP_ACCESS_TYPE_AUTOMATIC_PROXY, WINHTTP_NO_PROXY_NAME, WINHTTP_NO_PROXY_BYPASS, 0);
 	if (hSession)
 	{
 		std::cout << "Session established." << std::endl;
 		hConnect = WinHttpConnect(hSession, adr, INTERNET_DEFAULT_HTTP_PORT, 0);
 		if (hConnect != NULL)
-			std::cout << "Connection established." << std::endl;
-		else
 		{
-			std::cout << GetLastError() << std::endl;
+			std::cout << "Connection established." << std::endl;
+			return true;
 		}
+		else
+			std::cout << "Error in WinHttpConnect: " << GetLastError() << std::endl;
 	}
 	else
-	{
 		std::cout << "Could not establish a session." << std::endl;
-	}
-};
-
-LPCWSTR Imupager::convCharLPCWSTR(char* str)
-{
-	wchar_t* args = new wchar_t[strlen(str) + 1];
-	size_t outSize;
-	mbstowcs_s(&outSize, args, strlen(str) + 1, str, strlen(str));
-	return (LPCWSTR)args;
+	return false;
 };
