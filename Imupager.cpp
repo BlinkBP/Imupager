@@ -31,7 +31,7 @@ void Imupager::upload(void* file, DWORD size)
 		{
 			std::cout << "Request opened." << std::endl;
 			//Imgur Client ID authorization header
-			bResults = WinHttpAddRequestHeaders(hRequest, L"Authorization: Client-ID PLACEHOLDER", -1L, WINHTTP_ADDREQ_FLAG_ADD);
+			bResults = WinHttpAddRequestHeaders(hRequest, L"Authorization: Client-ID _PLACEHOLDER_", -1L, WINHTTP_ADDREQ_FLAG_ADD);
 			if (bResults)
 			{
 				bResults = WinHttpSendRequest(hRequest, WINHTTP_NO_ADDITIONAL_HEADERS, 0, NULL, 0, size, 0);
@@ -93,8 +93,8 @@ void Imupager::receiveResponse()
 void Imupager::parseResponse(char* response, DWORD size)
 {
 	std::string r(response, size);
-	auto succ = r.find("\"success\":true");
-	if (succ != r.back())
+	size_t succ = r.find("\"success\":true");
+	if (succ != std::string::npos)
 	{
 		//Upload successful
 		//Let's get the url
@@ -102,7 +102,7 @@ void Imupager::parseResponse(char* response, DWORD size)
 		size_t lBegin = r.find("link") + strlen("link\":\"");
 		//Searching for the ending '"' of link
 		size_t lEnd = r.find('"', lBegin);
-		if (lEnd != r.back())
+		if (lEnd != std::string::npos)
 		{
 			std::string url = std::string(r, lBegin, lEnd - lBegin + 1);
 			//Let's sanitize the url a little; '\' characters have to go
@@ -117,7 +117,7 @@ void Imupager::parseResponse(char* response, DWORD size)
 	}
 	else
 	{
-		std::cout << "Invalid response from server: " << response << std::endl;
+		std::cout << "Invalid response from server: " << std::endl << response << std::endl;
 	}
 }
 

@@ -32,7 +32,6 @@ int main(int argc, char * argv[])
 					if (cSuccess)
 					{
 						std::cout << "URL copied to clippboard successfully." << std::endl;
-						Sleep(1000);
 					}
 				}
 			}
@@ -40,6 +39,9 @@ int main(int argc, char * argv[])
 				std::cout << "Could not read the file: " << GetLastError() << std::endl;
 		}
 	}
+	long close = 5000;
+	std::cout << "Application will close in " << close << " miliseconds." << std::endl;
+	Sleep(close);
 	return 0;
 }
 
