@@ -25,13 +25,14 @@ void Imupager::initializeUpload()
 	{
 		std::cout << "Connection established." << std::endl;
 
-		hRequest = WinHttpOpenRequest(hConnect, verb, host, NULL, WINHTTP_NO_REFERER, WINHTTP_DEFAULT_ACCEPT_TYPES, WINHTTP_FLAG_REFRESH);
+		hRequest = WinHttpOpenRequest(hConnect, verb, host, NULL, WINHTTP_NO_REFERER, WINHTTP_DEFAULT_ACCEPT_TYPES, WINHTTP_FLAG_SECURE | WINHTTP_FLAG_REFRESH);
 
 		if (hRequest)
 		{
 			std::cout << "Request opened." << std::endl;
 			//Imgur Client ID authorization header
-			bResults = WinHttpAddRequestHeaders(hRequest, L"Authorization: Client-ID _PLACEHOLDER_", -1L, WINHTTP_ADDREQ_FLAG_ADD);
+			WinHttpAddRequestHeaders(hRequest, L"authorization: Client-ID _PLACEHOLDER_", -1L, WINHTTP_ADDREQ_FLAG_ADD);
+			WinHttpAddRequestHeaders(hRequest, L"type: file", -1L, WINHTTP_ADDREQ_FLAG_ADD);
 		}
 		else
 			printError("WinHttpAddRequestHeaders");
@@ -44,7 +45,7 @@ void Imupager::uploadFile(void* file, DWORD size)
 {
 	if (bResults)
 	{
-		bResults = WinHttpSendRequest(hRequest, WINHTTP_NO_ADDITIONAL_HEADERS, 0, NULL, 0, size, 0);
+		bResults = WinHttpSendRequest(hRequest, L"file:", -1L, NULL, 0, size, 0);
 		if (bResults)
 		{
 			std::cout << "Request sent." << std::endl;
@@ -68,7 +69,6 @@ void Imupager::uploadUrl(char* url)
 		if (bResults)
 		{
 			std::cout << "Request sent." << std::endl;
-
 			bResults = WinHttpWriteData(hRequest, url, strlen(url), &rSize);
 
 			if (bResults)
@@ -89,6 +89,24 @@ bool Imupager::uploadSuccessful()
 std::string Imupager::getUrl()
 {
 	return uUrl;
+}
+
+bool Imupager::initializeWinHTTP()
+{
+	//initializing the use of WinHTTP functions and getting WinHTTP-session handle.
+	hSession = WinHttpOpen(L"Imupager/1.1", WINHTTP_ACCESS_TYPE_AUTOMATIC_PROXY, WINHTTP_NO_PROXY_NAME, WINHTTP_NO_PROXY_BYPASS, 0);
+	if (hSession)
+	{
+		std::cout << "Session established." << std::endl;
+		hConnect = WinHttpConnect(hSession, adr, INTERNET_DEFAULT_HTTPS_PORT, 0);
+		if (hConnect != NULL)
+			return true;
+		else
+			printError("WinHttpConnect");
+	}
+	else
+		printError("WinHttpOpen");
+	return false;
 }
 
 void Imupager::receiveResponse()
@@ -145,27 +163,6 @@ void Imupager::parseResponse(char* response, DWORD size)
 	{
 		std::cout << "Invalid response from server: " << std::endl << response << std::endl;
 	}
-}
-
-bool Imupager::initializeWinHTTP()
-{
-	//initializing the use of WinHTTP functions and getting WinHTTP-session handle.
-	hSession = WinHttpOpen(L"Imupager/1.0", WINHTTP_ACCESS_TYPE_AUTOMATIC_PROXY, WINHTTP_NO_PROXY_NAME, WINHTTP_NO_PROXY_BYPASS, 0);
-	if (hSession)
-	{
-		std::cout << "Session established." << std::endl;
-		hConnect = WinHttpConnect(hSession, adr, INTERNET_DEFAULT_HTTP_PORT, 0);
-		if (hConnect != NULL)
-		{
-			std::cout << "Connection established." << std::endl;
-			return true;
-		}
-		else
-			printError("WinHttpConnect");
-	}
-	else
-		std::cout << "Could not establish a session." << std::endl;
-	return false;
 }
 
 void Imupager::printError(char* name)
