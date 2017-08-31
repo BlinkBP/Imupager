@@ -32,7 +32,6 @@ void Imupager::initializeUpload()
 			std::cout << "Request opened." << std::endl;
 			//Imgur Client ID authorization header
 			WinHttpAddRequestHeaders(hRequest, L"authorization: Client-ID _PLACEHOLDER_", -1L, WINHTTP_ADDREQ_FLAG_ADD);
-			WinHttpAddRequestHeaders(hRequest, L"type: file", -1L, WINHTTP_ADDREQ_FLAG_ADD);
 		}
 		else
 			printError("WinHttpAddRequestHeaders");

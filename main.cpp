@@ -25,19 +25,8 @@ int main(int argc, char * argv[])
 			if (fResult)
 			{
 				std::cout << "File loaded. Size: " << dwFileSize << std::endl;
-				up.uploadFile((void*)pBuf, dwFileSize);
-				Imupager up;
 				std::cout << "Sending POST" << std::endl;
 				up.uploadFile((void*)pBuf, dwFileSize);
-				if (up.uploadSuccessful())
-				{
-					std::string url = up.getUrl();
-					bool cSuccess = copyToClipboard(url);
-					if (cSuccess)
-					{
-						std::cout << "URL copied to clippboard successfully." << std::endl;
-					}
-				}
 			}
 			else
 				std::cout << "Could not read the file: " << GetLastError() << std::endl;
@@ -45,7 +34,8 @@ int main(int argc, char * argv[])
 		//If user is sending a url
 		else if (url)
 		{
-			std::cout << "Url loaded." << std::endl;
+			std::cout << "Url loaded" << std::endl;
+			std::cout << "Sending POST" << std::endl;
 			up.uploadUrl(url);
 		}
 		//Checking if everything was successful then copying the result url to clipboard
