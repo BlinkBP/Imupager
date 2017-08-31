@@ -2,7 +2,8 @@
 
 Imupager::Imupager(){
 	adr = L"api.imgur.com";
-	//adr = L"uploads.im";
+	host = L"/3/image";
+	verb = L"POST";
 	bResults = FALSE;
 	uSuccess = FALSE;
 };
@@ -15,7 +16,7 @@ Imupager::~Imupager()
 	if (hSession) WinHttpCloseHandle(hSession);
 };
 
-void Imupager::upload(void* file, DWORD size)
+void Imupager::initializeUpload()
 {
 	bResults = FALSE;
 	uSuccess = FALSE;
@@ -24,46 +25,71 @@ void Imupager::upload(void* file, DWORD size)
 	{
 		std::cout << "Connection established." << std::endl;
 
-		hRequest = WinHttpOpenRequest(hConnect, L"POST", L"/3/image", NULL, WINHTTP_NO_REFERER, WINHTTP_DEFAULT_ACCEPT_TYPES, WINHTTP_FLAG_REFRESH);
-		//hRequest = WinHttpOpenRequest(hConnect, L"POST", L"/api?upload", NULL, WINHTTP_NO_REFERER, WINHTTP_DEFAULT_ACCEPT_TYPES, WINHTTP_FLAG_REFRESH);
+		hRequest = WinHttpOpenRequest(hConnect, verb, host, NULL, WINHTTP_NO_REFERER, WINHTTP_DEFAULT_ACCEPT_TYPES, WINHTTP_FLAG_REFRESH);
 
 		if (hRequest)
 		{
 			std::cout << "Request opened." << std::endl;
 			//Imgur Client ID authorization header
 			bResults = WinHttpAddRequestHeaders(hRequest, L"Authorization: Client-ID _PLACEHOLDER_", -1L, WINHTTP_ADDREQ_FLAG_ADD);
-			if (bResults)
-			{
-				bResults = WinHttpSendRequest(hRequest, WINHTTP_NO_ADDITIONAL_HEADERS, 0, NULL, 0, size, 0);
-				if (bResults)
-				{
-					std::cout << "Request sent." << std::endl;
-
-					bResults = WinHttpWriteData(hRequest, (LPVOID)file, size, &rSize);
-					if (bResults)
-						receiveResponse();
-					else
-						std::cout << "Error in WinHttpWriteData: " << GetLastError() << std::endl;
-				}
-				else
-					std::cout << "Error in WinHttpSendRequest: " << GetLastError() << std::endl;
-			}
-			else
-				std::cout << "Error in WinHttpAddRequestHeaders: " << GetLastError() << std::endl;
 		}
 		else
-			std::cout << "Error in WinHttpAddRequestHeaders: " << GetLastError() << std::endl;
+			printError("WinHttpAddRequestHeaders");
+	}
+	else
+		printError("WinHttpOpenRequest");
+}
+
+void Imupager::uploadFile(void* file, DWORD size)
+{
+	if (bResults)
+	{
+		bResults = WinHttpSendRequest(hRequest, WINHTTP_NO_ADDITIONAL_HEADERS, 0, NULL, 0, size, 0);
+		if (bResults)
+		{
+			std::cout << "Request sent." << std::endl;
+
+			bResults = WinHttpWriteData(hRequest, (LPVOID)file, size, &rSize);
+			if (bResults)
+				receiveResponse();
+			else
+				printError("WinHttpWriteData");
+		}
+		else
+			printError("WinHttpSendRequest");
 	}
 }
+
+void Imupager::uploadUrl(char* url)
+{
+	if (bResults)
+	{
+		bResults = WinHttpSendRequest(hRequest, WINHTTP_NO_ADDITIONAL_HEADERS, 0, NULL, 0, strlen(url), 0);
+		if (bResults)
+		{
+			std::cout << "Request sent." << std::endl;
+
+			bResults = WinHttpWriteData(hRequest, url, strlen(url), &rSize);
+
+			if (bResults)
+				receiveResponse();
+			else
+				printError("WinHttpWriteData");
+		}
+		else
+			printError("WinHttpSendRequest");
+	}
+}
+
 bool Imupager::uploadSuccessful()
 {
 	return uSuccess;
 }
+
 std::string Imupager::getUrl()
 {
 	return uUrl;
 }
-;
 
 void Imupager::receiveResponse()
 {
@@ -77,17 +103,17 @@ void Imupager::receiveResponse()
 		{
 			response = new char[rSize]();
 			if (!WinHttpReadData(hRequest, (LPVOID)response, rSize, &rDownloaded))
-				std::cout << "Error in WinHttpReadData: " << GetLastError() << std::endl;
+				printError("WinHttpReadData");
 			else
 				parseResponse(response, rDownloaded);
-				//std::cout << response << std::endl;
+			//std::cout << response << std::endl;
 			delete[] response;
 		}
 		else
-			std::cout << "Error in WinHttpQueryDataAvailable: " << GetLastError() << std::endl;
+			printError("WinHttpQueryDataAvailable");
 	}
 	else
-		std::cout << "Error in WinHttpReceiveResponse: " << GetLastError() << std::endl;
+		printError("WinHttpReceiveResponse");
 }
 
 void Imupager::parseResponse(char* response, DWORD size)
@@ -135,9 +161,14 @@ bool Imupager::initializeWinHTTP()
 			return true;
 		}
 		else
-			std::cout << "Error in WinHttpConnect: " << GetLastError() << std::endl;
+			printError("WinHttpConnect");
 	}
 	else
 		std::cout << "Could not establish a session." << std::endl;
 	return false;
-};
+}
+
+void Imupager::printError(char* name)
+{
+	std::cout << "Error in " << name << " : " << GetLastError() << std::endl;
+}

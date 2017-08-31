@@ -13,12 +13,14 @@ public:
 	Imupager();
 	~Imupager();
 
-	void upload(void* file, DWORD size);
+	void initializeUpload();
+	void uploadFile(void* file, DWORD size);
+	void uploadUrl(char* url);
 	bool uploadSuccessful();
 	std::string getUrl();
 
 private:
-	LPCWSTR	adr;
+	LPCWSTR	adr, host, verb;
 	HINTERNET hSession, hConnect, hRequest;
 	BOOL  bResults, uSuccess;
 	DWORD rSize, rDownloaded;
@@ -29,4 +31,5 @@ private:
 	bool initializeWinHTTP();
 	void receiveResponse();
 	void parseResponse(char* response, DWORD size);
+	void printError(char* name);
 };
